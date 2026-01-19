@@ -1,0 +1,76 @@
+services:
+  app:
+    image: alizo-service-provider:prod-latest
+    container_name: alizo-app
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - APP_KEY=${APP_KEY}
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - app-public:/var/www/public
+      - app-storage:/var/www/storage
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "php", "artisan", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: alizo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker-compose/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - app-public:/var/www/public:ro
+      - app-storage:/var/www/storage:ro
+    networks:
+      - app-network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: alizo-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:alpine
+    container_name: alizo-redis
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+  app-public:
+  app-storage:
+
+networks:
+  app-network:
+    driver: bridge
