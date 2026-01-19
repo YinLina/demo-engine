@@ -1,7 +1,7 @@
 services:
   app:
-    image: alizo-service-provider:prod-latest
-    container_name: alizo-app
+    image: laravel-demo:prod-latest
+    container_name: laravel-app
     restart: unless-stopped
     environment:
       - APP_ENV=production
@@ -27,7 +27,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: alizo-nginx
+    container_name: laravel-nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -42,11 +42,11 @@ services:
 
   db:
     image: mysql:8.0
-    container_name: alizo-db
+    container_name: laravel-db
     restart: unless-stopped
     environment:
       - MYSQL_DATABASE=${DB_DATABASE}
-      - MYSQL_USER=${DB_USER}
+      - MYSQL_USER=${DB_USERNAME}
       - MYSQL_PASSWORD=${DB_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
     volumes:
@@ -61,7 +61,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: alizo-redis
+    container_name: laravel-redis
     restart: unless-stopped
     networks:
       - app-network

@@ -17,7 +17,7 @@ jobs:
         id: vars
         run: |
           echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
-          echo "IMAGE_NAME=alizo-service-provider" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=laravel-demo" >> $GITHUB_OUTPUT
 
       - name: Login to GHCR
         uses: docker/login-action@v3
