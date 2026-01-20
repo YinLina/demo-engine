@@ -16,12 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Make a lowercase owner for GHCR path
-      - name: Compute lowercase owner
-        id: vars
-        run: |
-          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
-          echo "IMAGE_NAME=laravel-demo" >> $GITHUB_OUTPUT
+      # Owner will be computed inline (lowercased) when building tags
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -41,8 +36,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner_lowercase }}/laravel-demo:${{ inputs.tag }}
-            ghcr.io/${{ github.repository_owner_lowercase }}/laravel-demo:${{ inputs.latest_tag }}
+            ghcr.io/${{ toLower(github.repository_owner) }}/laravel-demo:${{ inputs.tag }}
+            ghcr.io/${{ toLower(github.repository_owner) }}/laravel-demo:${{ inputs.latest_tag }}
           # tags: |
           #   ghcr.io/${{ steps.vars.outputs.OWNER_LC }}/${{ steps.vars.outputs.IMAGE_NAME }}:${{ inputs.tag }}
           #   ghcr.io/${{ steps.vars.outputs.OWNER_LC }}/${{ steps.vars.outputs.IMAGE_NAME }}:${{ inputs.latest_tag }}
