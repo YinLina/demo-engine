@@ -43,3 +43,4 @@ jobs:
           #   ghcr.io/${{ steps.vars.outputs.OWNER_LC }}/${{ steps.vars.outputs.IMAGE_NAME }}:${{ inputs.latest_tag }}
           # cache-from: type=gha
           cache-to: type=gha,mode=max
+
