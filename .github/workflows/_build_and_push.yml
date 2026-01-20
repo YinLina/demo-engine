@@ -41,8 +41,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/laravel-demo:${{ inputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/laravel-demo:${{ inputs.latest_tag }}
+            ghcr.io/${{ github.repository_owner_lowercase }}/laravel-demo:${{ inputs.tag }}
+            ghcr.io/${{ github.repository_owner_lowercase }}/laravel-demo:${{ inputs.latest_tag }}
           # tags: |
           #   ghcr.io/${{ steps.vars.outputs.OWNER_LC }}/${{ steps.vars.outputs.IMAGE_NAME }}:${{ inputs.tag }}
           #   ghcr.io/${{ steps.vars.outputs.OWNER_LC }}/${{ steps.vars.outputs.IMAGE_NAME }}:${{ inputs.latest_tag }}
