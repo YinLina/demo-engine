@@ -9,6 +9,9 @@ permissions:
   packages: write
 
 jobs:
+  # -----------------------------
+  # Build & push image (reusable)
+  # -----------------------------
   build:
     uses: ./.github/workflows/_build_and_push.yml
     with:
@@ -16,19 +19,25 @@ jobs:
       latest_tag: prod-latest
     secrets: inherit
 
+  # -----------------------------
+  # Deploy to EC2
+  # -----------------------------
   deploy:
     runs-on: ubuntu-latest
     needs: build
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          ref: main   # ensure we get main branch
+          ref: main
 
+      # Lowercase owner for GHCR path
       - name: Compute lowercase owner
         id: img
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
+      # Prepare folders on EC2
       - name: Prepare project folders
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -38,11 +47,11 @@ jobs:
           script: |
             sudo mkdir -p /var/www/laravel-demo
             sudo chown -R ubuntu:ubuntu /var/www/laravel-demo
-            cd /var/www/laravel-demo
-            mkdir -p storage bootstrap/cache docker-compose/nginx
+            mkdir -p /var/www/laravel-demo/docker-compose/nginx
+            mkdir -p /var/www/laravel-demo/storage /var/www/laravel-demo/bootstrap/cache
 
-      # ✅ Copy entire docker-compose directory
-      - name: Upload docker-compose directory
+      # Upload docker-compose.yml
+      - name: Upload docker-compose.yml
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -50,10 +59,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml"
           target: "/var/www/laravel-demo/"
-          strip_components: 0
 
-      # ✅ Copy entire docker-compose directory
-      - name: Upload docker-compose directory
+      # Upload docker-compose configs (nginx app.conf)
+      - name: Upload docker-compose configs
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -62,18 +70,10 @@ jobs:
           source: "docker-compose/*"
           target: "/var/www/laravel-demo/"
 
-      # ✅ Copy public directory
-      - name: Upload public directory
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "public/*"
-          target: "/var/www/laravel-demo/"
-
-      # ✅ Remote deploy on EC2
-      - name: SSH → pull & run
+      # -----------------------------
+      # Remote deploy on EC2
+      # -----------------------------
+      - name: SSH → pull image & run containers
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -82,50 +82,49 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd "/var/www/laravel-demo"
+            cd /var/www/laravel-demo
 
-            echo "${{ secrets.GHCR_KEY }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+            echo "${{ secrets.GHCR_KEY }}" | docker login ghcr.io \
+              -u "${{ github.repository_owner }}" --password-stdin
 
-            IMG="ghcr.io/${{ steps.img.outputs.OWNER_LC }}/laravel-demo:prod-latest"
-            echo "Deploying $IMG"
-            docker pull "$IMG"
-            docker tag "$IMG" laravel-demo:prod-latest
+            IMAGE="ghcr.io/${{ steps.img.outputs.OWNER_LC }}/laravel-demo:prod-latest"
+            echo "Deploying $IMAGE"
+            docker pull "$IMAGE"
 
-            # Fix storage permissions before starting containers
-            mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
-            mkdir -p docker-compose/nginx
-            chmod -R 777 storage bootstrap/cache
+            # Ensure permissions for Laravel
+            sudo chown -R 33:33 storage bootstrap/cache
+            sudo chmod -R 775 storage bootstrap/cache
 
-            # Verify nginx config exists
-            if [ ! -f docker-compose/nginx/nginx.conf ]; then
-              echo "ERROR: nginx.conf not found!"
-              ls -la docker-compose/nginx/ || echo "nginx directory not found"
+            # Verify nginx config (app.conf)
+            if [ ! -f docker-compose/nginx/app.conf ]; then
+              echo "❌ app.conf not found!"
+              ls -la docker-compose/nginx || true
               exit 1
             fi
 
-            docker compose -f docker-compose.yml up -d --remove-orphans
+            docker compose up -d --remove-orphans
 
-            # Wait until app is healthy
+            # Wait for app healthcheck
             echo "Waiting for app container to become healthy..."
             for i in {1..60}; do
-              cid=$(docker compose -f docker-compose.yml ps -q app || true)
+              cid=$(docker compose ps -q app || true)
               status="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || true)"
               if [ "$status" = "healthy" ]; then
                 echo "✅ App is healthy"
                 break
               fi
               if [ "$i" -eq 60 ]; then
-                echo "❌ App failed to become healthy in time"
+                echo "❌ App did not become healthy"
                 docker compose ps
                 exit 1
               fi
               sleep 2
             done
 
-            # Run Laravel cache + migrations
-            docker compose -f docker-compose.yml exec -T app php artisan optimize:clear
-            # docker compose -f docker-compose.yml exec -T app php artisan migrate --force
-            docker compose -f docker-compose.yml exec -T app php artisan config:cache
-            docker compose -f docker-compose.yml exec -T app php artisan route:cache || true
-            docker compose -f docker-compose.yml exec -T app php artisan view:cache
+            # Laravel optimization
+            docker compose exec -T app php artisan optimize:clear
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache || true
+            docker compose exec -T app php artisan view:cache
+
             docker image prune -f --filter "until=168h"

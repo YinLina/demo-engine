@@ -1,26 +1,25 @@
 services:
   app:
-    image: laravel-demo:prod-latest
+    image: ghcr.io/yinlina/laravel-demo:prod-latest
     container_name: laravel-app
     restart: unless-stopped
     environment:
-      - APP_ENV=production
-      - APP_KEY=${APP_KEY}
-      - DB_CONNECTION=mysql
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE}
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      APP_ENV: production
+      APP_KEY: ${APP_KEY}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
-      - app-public:/var/www/public
       - app-storage:/var/www/storage
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "php", "artisan", "--version"]
+      test: ["CMD", "php", "-v"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -33,23 +32,20 @@ services:
       - "80:80"
     volumes:
       - ./docker-compose/nginx/app.conf:/etc/nginx/nginx.conf:ro
-      - app-public:/var/www/public:ro
-      - app-storage:/var/www/storage:ro
-    networks:
-      - app-network
     depends_on:
       - app
-
+    networks:
+      - app-network
 
   db:
     image: mysql:8.0
     container_name: laravel-db
     restart: unless-stopped
     environment:
-      - MYSQL_DATABASE=${DB_DATABASE}
-      - MYSQL_USER=${DB_USERNAME}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -69,7 +65,6 @@ services:
 
 volumes:
   db_data:
-  app-public:
   app-storage:
 
 networks:
